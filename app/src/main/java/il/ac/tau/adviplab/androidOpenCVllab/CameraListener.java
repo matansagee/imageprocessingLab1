@@ -1,7 +1,12 @@
 package il.ac.tau.adviplab.androidOpenCVllab;
 
+import android.graphics.Bitmap;
+
 import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
 
 /**
  * Created by amitboy on 2/28/2015.
@@ -18,7 +23,7 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
     public static final int HIST_NORMALIZATION_CONST =10000;
     public static final int VIEW_MODE_HIST_EQUALIZE = 4;
     public static final int VIEW_MODE_HIST_CUMULATIVE = 5;
-    public static final int VIEW_MODE_HIST_MATCHING = 6;
+    public static final int VIEW_MODE_HIST_MATCH = 6;
 
 
     //Mode selectors:
@@ -30,7 +35,9 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
 
     //members
     Mat mImToProcess;
+    Mat mImageToMatch;
     Mat[] mHistArray;
+    Mat[] mHistDstArray;
     private Mat[] mHistCumulativeArray;
 
     //Getters and setters
@@ -71,6 +78,16 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
             for (Mat histMat : mHistArray){
                 histMat.release();
             }
+
+            if (mHistDstArray!=null){
+                for (Mat mat : mHistDstArray) {
+                    mat.release();
+                }
+            }
+            if (mImageToMatch!=null){
+                mImageToMatch.release();
+            }
+
         }
 
         @Override
@@ -100,8 +117,13 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
                         idx++;
                     }
                     MyImageProc.showHist(mImToProcess, mHistCumulativeArray, histSizeNum);
-
                     break;
+                case CameraListener.VIEW_MODE_HIST_MATCH:
+                    if (null == mHistDstArray) break;
+                    MyImageProc.matchHist(mImToProcess,
+                            mImageToMatch,mHistArray,mHistDstArray,true);
+                    break;
+
             }
 
             if (this.mShowHistogram) {
@@ -113,7 +135,19 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
             return mImToProcess;
         }
 
-    };
-
-
-
+    public void computeHistOfImageToMatch(Bitmap image) {
+        //converts a bitmap to Mat
+        mImageToMatch = new Mat();
+        Utils.bitmapToMat(image, mImageToMatch);
+        Imgproc.cvtColor(mImageToMatch, mImageToMatch,
+                Imgproc.COLOR_RGBA2GRAY);//convert to grayscale
+        if (mHistDstArray == null) {
+            mHistDstArray = new Mat[3];
+            for (int i = 0; i < mHistDstArray.length; i++) {
+                mHistDstArray[i] = new Mat();
+            }
+        }
+        MyImageProc.calcHist(mImageToMatch, mHistDstArray, 256,
+                HIST_NORMALIZATION_CONST, Core.NORM_L1);
+    }
+};

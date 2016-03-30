@@ -67,6 +67,10 @@ public class MyImageProc extends CameraListener {
         mColorsRGB = new Scalar[]{new Scalar(200, 0, 0, 255), new Scalar(0,
                 200, 0, 255), new Scalar(0, 0, 200, 255)};
 
+        for (int i = 0; i < numberOfChannels; i++) {
+            Core.normalize(histList[i], histList[i], image.height()/2, 0, Core.NORM_INF);
+        }
+
         for (int chIdx = 0; chIdx < numberOfChannels; chIdx++) {
             histList[chIdx].get(0, 0, buff);
             for (int h = 0; h < histSizeNum; h++) {
@@ -110,7 +114,7 @@ public class MyImageProc extends CameraListener {
             sum += buff[h];
             CumulativeSum[h] = sum;
         }
-        cumuHist.put(0,0,CumulativeSum);
+        cumuHist.put(0, 0, CumulativeSum);
     }
 
     public static void applyIntensityMapping(Mat srcImage, Mat lookUpTable)
@@ -127,9 +131,51 @@ public class MyImageProc extends CameraListener {
 //        Mat histSrc - source histogram
 //        Mat histDst - destination histogram
 //        Mat lookUpTable - lookUp table
+
 //        Add your implementation here
+        
+        Mat histSrcCom = new Mat(histSrc.size(),histSrc.type());
+        Mat histDstCom = new Mat(histDst.size(),histDst.type());
+
+        calcCumulativeHist(histSrc, histSrcCom);
+        calcCumulativeHist(histDst, histDstCom);
+
+        int numOfScales = (int) histSrcCom.total(); //256
+
+        float[] buffSrc = new float[numOfScales];
+        float[] buffDst = new float[numOfScales];
+
+        histSrcCom.get(0,0,buffSrc);
+        histDstCom.get(0,0,buffDst);
+
+        //allocate a buff for the LUT
+        int[] buffLUT = new int[numOfScales];
+
+        for (int i = numOfScales; i >0; i--) {
+            for (int j = numOfScales; j > 0; j--) {
+                if (buffDst[j] <= buffSrc[i]){
+                    buffLUT[i] = (int) buffDst[j+1];
+                    break;
+                }
+            }
+        }
+        lookUpTable.put(0,0,buffLUT);
+
+        //release dynamically allocated memory
+        histSrcCom.release();
+        histDstCom.release();
 
     }
 
+
+    public static void matchHist(Mat srcImage,Mat dstImage,Mat[] srcHistArray,
+                                 Mat[] dstHistArray,boolean histShow) {
+        Mat lookupTable = new Mat(256, 1, CvType.CV_32SC1);
+        //Add the body of the implementation here. Follow the guidelines from the text.
+//        calcHist(srcImage, Mat[] histList, int histSizeNum);
+        lookupTable.release();
+        //Here add the part that displays the histogram if histShow==true
+    }
 }
+
 

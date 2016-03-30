@@ -1,9 +1,14 @@
 package il.ac.tau.adviplab.androidOpenCVllab;
 
-import android.support.v7.app.AppCompatActivity;
+import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
 import android.hardware.Camera;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -23,14 +28,13 @@ import org.opencv.android.OpenCVLoader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import il.ac.tau.adviplab.androidOpenCVllab.CameraListener;
-import il.ac.tau.adviplab.androidOpenCVllab.MyJavaCameraView;
-import il.ac.tau.adviplab.androidOpenCVllab.R;
-
 
 public class IntensityTransformationActivity extends AppCompatActivity {
 
     private static final String TAG = "IntensityTransforms";
+
+    //Intent tags
+    private static final int SELECT_PICTURE = 1;
 
     //menu members
     private SubMenu mResolutionSubMenu;
@@ -91,11 +95,23 @@ public class IntensityTransformationActivity extends AppCompatActivity {
                 String fileName = Environment.getExternalStorageDirectory().getPath() +
                         "/sample_picture_" + currentDateandTime + ".jpg";
                 mOpenCvCameraView.takePicture(fileName);
+                addImageToGallery(fileName,IntensityTransformationActivity.this);
                 Toast.makeText(IntensityTransformationActivity.this, fileName + " saved", Toast.LENGTH_SHORT).show();
 
             }
         });
 
+    }
+
+    private static void addImageToGallery(final String filePath, final Context
+            context) {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DATE_TAKEN,
+                System.currentTimeMillis());
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+        values.put(MediaStore.MediaColumns.DATA, filePath);
+        context.getContentResolver().
+                insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
     }
 
     @Override
@@ -147,7 +163,7 @@ public class IntensityTransformationActivity extends AppCompatActivity {
                 CameraListener.VIEW_MODE_HIST_EQUALIZE, Menu.NONE, "Equalize");
         histogramMenu.add(HISTOGRAM_GROUP_ID,
                 CameraListener.VIEW_MODE_HIST_CUMULATIVE, Menu.NONE, "Cumulative");
-        histogramMenu.add(HISTOGRAM_GROUP_ID, CameraListener.VIEW_MODE_HIST_MATCHING, Menu.NONE, "Matching");
+        histogramMenu.add(HISTOGRAM_GROUP_ID, CameraListener.VIEW_MODE_HIST_MATCH, Menu.NONE, "Matching");
 
         return true;
     }
@@ -201,6 +217,15 @@ public class IntensityTransformationActivity extends AppCompatActivity {
                     mCameraListener.setViewMode(id);
                 }else if (id == CameraListener.VIEW_MODE_HIST_CUMULATIVE){
                     mCameraListener.setViewMode(id);
+                }else if(id == CameraListener.VIEW_MODE_HIST_MATCH){
+                    //Open gallery to select image for matching
+                    Intent intent = new Intent();
+                    intent.setType("image/*");
+                    intent.setAction(Intent.ACTION_GET_CONTENT);
+                    startActivityForResult(Intent.createChooser(intent,
+                                    "Select image for histogram matching"),
+                            SELECT_PICTURE);
+
                 }
                 break;
 
@@ -224,4 +249,24 @@ public class IntensityTransformationActivity extends AppCompatActivity {
             camMenu.add(CAMERA_GROUP_ID, i, Menu.NONE, mCameraNames[i]);
         }
     }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent
+            data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode==RESULT_OK){
+            Uri imageUri = data.getData();
+            if (imageUri != null){
+                try {
+                    Bitmap imageToMatch =
+                            MediaStore.Images.Media.getBitmap(this.getContentResolver(),
+                                    imageUri);
+                    mCameraListener.computeHistOfImageToMatch(imageToMatch);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
 }
