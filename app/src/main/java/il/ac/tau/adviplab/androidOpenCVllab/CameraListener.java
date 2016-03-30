@@ -14,14 +14,24 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
     public static final int VIEW_MODE_DEFAULT = 0;
     public static final int VIEW_MODE_RGBA = 1;
     public static final int VIEW_MODE_GRAYSCALE =2;
+    public static final int VIEW_MODE_SHOW_HIST =3;
+    public static final int HIST_NORMALIZATION_CONST =10000;
+    public static final int VIEW_MODE_HIST_EQUALIZE = 4;
+    public static final int VIEW_MODE_HIST_CUMULATIVE = 5;
+    public static final int VIEW_MODE_HIST_MATCHING = 6;
+
 
     //Mode selectors:
     private int mViewMode = VIEW_MODE_DEFAULT;
     private int mColorMode = VIEW_MODE_RGBA;
+    private boolean mShowHistogram = false;
+
 
 
     //members
     Mat mImToProcess;
+    Mat[] mHistArray;
+    private Mat[] mHistCumulativeArray;
 
     //Getters and setters
     //todo: add to tutorial
@@ -42,15 +52,25 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
     }
 
 
+    public boolean isShowHistogram() {
+        return mShowHistogram;
+    }
+
+    public void setShowHistogram(boolean showHistogram) {
+        mShowHistogram = showHistogram;
+    }
 
     @Override
         public void onCameraViewStarted(int width, int height) {
-
+            mHistArray = new Mat[]{new Mat(), new Mat(), new Mat()};
+            mHistCumulativeArray = new Mat[]{new Mat(), new Mat(), new Mat()};
         }
 
         @Override
         public void onCameraViewStopped() {
-
+            for (Mat histMat : mHistArray){
+                histMat.release();
+            }
         }
 
         @Override
@@ -67,7 +87,29 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
             switch (this.mViewMode) {
                 case VIEW_MODE_DEFAULT:
                     break;
+                case CameraListener.VIEW_MODE_HIST_EQUALIZE:
+                    MyImageProc.equalizeHist(mImToProcess);
+                    break;
+                case CameraListener.VIEW_MODE_HIST_CUMULATIVE:
+                    int histSizeNum = 100;
+                    MyImageProc.calcHist(mImToProcess, mHistArray, histSizeNum);
+                    int idx = 0;
+                    for (Mat histMat : mHistArray){
+                        mHistCumulativeArray[idx].create(histMat.size(),histMat.type());
+                        MyImageProc.calcCumulativeHist(histMat, mHistCumulativeArray[idx]);
+                        idx++;
+                    }
+                    MyImageProc.showHist(mImToProcess, mHistCumulativeArray, histSizeNum);
+
+                    break;
             }
+
+            if (this.mShowHistogram) {
+                int histSizeNum = 100;
+                MyImageProc.calcHist(mImToProcess, mHistArray, histSizeNum);
+                MyImageProc.showHist(mImToProcess, mHistArray, histSizeNum);
+            }
+
             return mImToProcess;
         }
 

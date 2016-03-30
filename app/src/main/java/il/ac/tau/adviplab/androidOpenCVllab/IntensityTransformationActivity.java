@@ -1,9 +1,9 @@
 package il.ac.tau.adviplab.androidOpenCVllab;
 
+import android.support.v7.app.AppCompatActivity;
 import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Environment;
-import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -23,6 +23,10 @@ import org.opencv.android.OpenCVLoader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import il.ac.tau.adviplab.androidOpenCVllab.CameraListener;
+import il.ac.tau.adviplab.androidOpenCVllab.MyJavaCameraView;
+import il.ac.tau.adviplab.androidOpenCVllab.R;
+
 
 public class IntensityTransformationActivity extends AppCompatActivity {
 
@@ -39,6 +43,7 @@ public class IntensityTransformationActivity extends AppCompatActivity {
     private static final int CAMERA_GROUP_ID = 2;
     private static final int DEFAULT_GROUP_ID =3 ;
     private static final int COLOR_GROUP_ID =4 ;
+    private static final int HISTOGRAM_GROUP_ID =5 ;
 
     private MyJavaCameraView mOpenCvCameraView;
     private Button mSaveButton;
@@ -132,6 +137,17 @@ public class IntensityTransformationActivity extends AppCompatActivity {
         colorMenu.add(COLOR_GROUP_ID, CameraListener.VIEW_MODE_RGBA, Menu.NONE, "RGBA");
         colorMenu.add(COLOR_GROUP_ID, CameraListener.VIEW_MODE_GRAYSCALE, Menu.NONE, "Grayscale");
 
+        Menu histogramMenu = menu.addSubMenu("Histogram");
+        // Creates toggle button to show and hide histogram
+        histogramMenu.add(HISTOGRAM_GROUP_ID,
+                CameraListener.VIEW_MODE_SHOW_HIST, Menu.NONE, "Show histogram")
+                .setCheckable(true)
+                .setChecked(mCameraListener.isShowHistogram());
+        histogramMenu.add(HISTOGRAM_GROUP_ID,
+                CameraListener.VIEW_MODE_HIST_EQUALIZE, Menu.NONE, "Equalize");
+        histogramMenu.add(HISTOGRAM_GROUP_ID,
+                CameraListener.VIEW_MODE_HIST_CUMULATIVE, Menu.NONE, "Cumulative");
+        histogramMenu.add(HISTOGRAM_GROUP_ID, CameraListener.VIEW_MODE_HIST_MATCHING, Menu.NONE, "Matching");
 
         return true;
     }
@@ -166,7 +182,7 @@ public class IntensityTransformationActivity extends AppCompatActivity {
                 mOpenCvCameraView.setResolution(res);
                 res = mOpenCvCameraView.getResolution();
                 Toast.makeText(this, res.width + "x" + res.height, Toast.LENGTH_SHORT).show();
-            break;
+                break;
 
             case CAMERA_GROUP_ID:
 
@@ -174,10 +190,22 @@ public class IntensityTransformationActivity extends AppCompatActivity {
                 String caption = mCameraNames[id] + " camera";
                 Toast.makeText(this, caption, Toast.LENGTH_SHORT).show();
                 setResoltuionMenu(mResolutionSubMenu);
-            break;
-            }
+                break;
+
+            case HISTOGRAM_GROUP_ID:
+                //Toggle button to show/hide histogram
+                if (id == CameraListener.VIEW_MODE_SHOW_HIST) {
+                    item.setChecked(!item.isChecked());
+                    mCameraListener.setShowHistogram(item.isChecked());
+                }else if (id == CameraListener.VIEW_MODE_HIST_EQUALIZE){
+                    mCameraListener.setViewMode(id);
+                }else if (id == CameraListener.VIEW_MODE_HIST_CUMULATIVE){
+                    mCameraListener.setViewMode(id);
+                }
+                break;
 
 
+        }
         return true;
     }
 
