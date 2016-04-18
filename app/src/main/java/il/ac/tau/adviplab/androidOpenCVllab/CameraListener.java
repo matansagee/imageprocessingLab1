@@ -20,16 +20,17 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
     public static final int VIEW_MODE_RGBA = 1;
     public static final int VIEW_MODE_GRAYSCALE =2;
     public static final int VIEW_MODE_SHOW_HIST =3;
-    public static final int HIST_NORMALIZATION_CONST =10000;
     public static final int VIEW_MODE_HIST_EQUALIZE = 4;
     public static final int VIEW_MODE_HIST_CUMULATIVE = 5;
     public static final int VIEW_MODE_HIST_MATCH = 6;
-
+    public static final int COMP_MATCH_DISTANCE = 99;
 
     //Mode selectors:
     private int mViewMode = VIEW_MODE_DEFAULT;
     private int mColorMode = VIEW_MODE_RGBA;
+
     private boolean mShowHistogram = false;
+    private boolean mShowCumuHistogram = false;
 
 
 
@@ -65,6 +66,14 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
 
     public void setShowHistogram(boolean showHistogram) {
         mShowHistogram = showHistogram;
+    }
+
+    public boolean isShowCumuHistogram() {
+        return mShowCumuHistogram;
+    }
+
+    public void setShowCumuHistogram(boolean showCumuHistogram) {
+        mShowCumuHistogram = showCumuHistogram;
     }
 
     @Override
@@ -107,21 +116,9 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
                 case CameraListener.VIEW_MODE_HIST_EQUALIZE:
                     MyImageProc.equalizeHist(mImToProcess);
                     break;
-                case CameraListener.VIEW_MODE_HIST_CUMULATIVE:
-                    int histSizeNum = 100;
-                    MyImageProc.calcHist(mImToProcess, mHistArray, histSizeNum);
-                    int idx = 0;
-                    for (Mat histMat : mHistArray){
-                        mHistCumulativeArray[idx].create(histMat.size(),histMat.type());
-                        MyImageProc.calcCumulativeHist(histMat, mHistCumulativeArray[idx]);
-                        idx++;
-                    }
-                    MyImageProc.showHist(mImToProcess, mHistCumulativeArray, histSizeNum);
-                    break;
                 case CameraListener.VIEW_MODE_HIST_MATCH:
                     if (null == mHistDstArray) break;
-                    MyImageProc.matchHist(mImToProcess,
-                            mImageToMatch,mHistArray,mHistDstArray,true);
+                    MyImageProc.matchHist(mImToProcess, mImageToMatch,mHistArray,mHistDstArray,this.mShowHistogram);
                     break;
 
             }
@@ -130,6 +127,13 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
                 int histSizeNum = 100;
                 MyImageProc.calcHist(mImToProcess, mHistArray, histSizeNum);
                 MyImageProc.showHist(mImToProcess, mHistArray, histSizeNum);
+            }
+
+            if (this.mShowCumuHistogram) {
+                int histSizeNum = 100;
+                MyImageProc.calcHist(mImToProcess, mHistArray, histSizeNum);
+                MyImageProc.calcCumulativeHist(mHistArray,mHistCumulativeArray,Math.min(3, mImToProcess.channels()));
+                MyImageProc.showHist(mImToProcess, mHistCumulativeArray, histSizeNum);
             }
 
             return mImToProcess;
@@ -148,6 +152,6 @@ public class CameraListener implements CameraBridgeViewBase.CvCameraViewListener
             }
         }
         MyImageProc.calcHist(mImageToMatch, mHistDstArray, 256,
-                HIST_NORMALIZATION_CONST, Core.NORM_L1);
+                MyImageProc.HIST_NORMALIZATION_CONST, Core.NORM_L1);
     }
 };

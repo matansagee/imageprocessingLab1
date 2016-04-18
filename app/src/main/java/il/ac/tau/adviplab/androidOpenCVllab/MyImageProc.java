@@ -18,6 +18,8 @@ import java.util.List;
  */
 public class MyImageProc extends CameraListener {
 
+    public static final int HIST_NORMALIZATION_CONST = 10000;
+
     public static void calcHist(Mat image, Mat[] histList, int histSizeNum,
                                 int normalizationConst, int normalizationNorm) {
         Mat mat0 = new Mat();
@@ -68,7 +70,7 @@ public class MyImageProc extends CameraListener {
                 200, 0, 255), new Scalar(0, 0, 200, 255)};
 
         for (int i = 0; i < numberOfChannels; i++) {
-            Core.normalize(histList[i], histList[i], image.height()/2, 0, Core.NORM_INF);
+            Core.normalize(histList[i], histList[i], image.height() / 2, 0, Core.NORM_INF);
         }
 
         for (int chIdx = 0; chIdx < numberOfChannels; chIdx++) {
@@ -104,77 +106,136 @@ public class MyImageProc extends CameraListener {
 
     public static void calcCumulativeHist(Mat hist, Mat cumuHist) {
 
-        int histSizeNum = (int)hist.total();
+        int histSizeNum = (int) hist.total();
         float[] buff = new float[histSizeNum];
         float[] CumulativeSum = new float[histSizeNum];
         hist.get(0, 0, buff);
-        float sum =0;
+        float sum = 0;
 
-        for (int h = 1; h < histSizeNum; h++) {
+        for (int h = 0; h < histSizeNum; h++) {
             sum += buff[h];
             CumulativeSum[h] = sum;
         }
         cumuHist.put(0, 0, CumulativeSum);
     }
 
-    public static void applyIntensityMapping(Mat srcImage, Mat lookUpTable)
-    {
+    public static void calcCumulativeHist(Mat[] hist, Mat[] cumuHist, int numberOfChannels) {
+        for (int i = 0; i < numberOfChannels; i++) {
+            cumuHist[i].create(hist[i].size(), hist[i].type());
+            MyImageProc.calcCumulativeHist(hist[i], cumuHist[i]);
+        }
+    }
+
+
+    public static void applyIntensityMapping(Mat srcImage, Mat lookUpTable) {
         Mat tempMat = new Mat();
         Core.LUT(srcImage, lookUpTable, tempMat);
         tempMat.convertTo(srcImage, CvType.CV_8UC1);
         tempMat.release();
     }
 
-    public static void matchHistogram(Mat histSrc, Mat histDst, Mat
-            lookUpTable) {
+    public static void matchHistogram(Mat histSrc, Mat histDst, Mat lookUpTable) {
 
 //        Mat histSrc - source histogram
 //        Mat histDst - destination histogram
 //        Mat lookUpTable - lookUp table
 
 //        Add your implementation here
-        
-        Mat histSrcCom = new Mat(histSrc.size(),histSrc.type());
-        Mat histDstCom = new Mat(histDst.size(),histDst.type());
 
-        calcCumulativeHist(histSrc, histSrcCom);
-        calcCumulativeHist(histDst, histDstCom);
+        Mat histSrcCum = new Mat(histSrc.size(), histSrc.type());
+        Mat histDstCum = new Mat(histDst.size(), histDst.type());
 
-        int numOfScales = (int) histSrcCom.total(); //256
+        calcCumulativeHist(histSrc, histSrcCum);
+        Core.normalize(histSrcCum, histSrcCum, 1, 0, Core.NORM_INF);
+        calcCumulativeHist(histDst, histDstCum);
+        Core.normalize(histDstCum, histDstCum, 1, 0, Core.NORM_INF);
+
+        int numOfScales = (int) histSrcCum.total(); //256
 
         float[] buffSrc = new float[numOfScales];
         float[] buffDst = new float[numOfScales];
 
-        histSrcCom.get(0,0,buffSrc);
-        histDstCom.get(0,0,buffDst);
+        histSrcCum.get(0, 0, buffSrc);
+        histDstCum.get(0, 0, buffDst);
 
         //allocate a buff for the LUT
         int[] buffLUT = new int[numOfScales];
+        int j = 0;
 
-        for (int i = numOfScales; i >0; i--) {
-            for (int j = numOfScales; j > 0; j--) {
-                if (buffDst[j] <= buffSrc[i]){
-                    buffLUT[i] = (int) buffDst[j+1];
-                    break;
-                }
+        for (int i=0; i< numOfScales; i++){
+            while(j< numOfScales && buffSrc[i] > buffDst[j]){
+                j++;
+            }
+            if (j ==256 ) {
+                j = 255;
+            }
+            buffLUT[i] = j;
+        }
+
+
+    lookUpTable.put(0,0,buffLUT);
+
+    //release dynamically allocated memory
+    histSrcCum.release();
+    histDstCum.release();
+
+}
+
+
+    public static void matchHist(Mat srcImage, Mat dstImage, Mat[] srcHistArray,
+                                 Mat[] dstHistArray, boolean histShow) {
+        Mat lookupTable = new Mat(256, 1, CvType.CV_32SC1);
+        calcHist(srcImage, srcHistArray, 256);
+        compareHistograms(srcImage, srcHistArray[0], dstHistArray[0], new Point(50,50), CameraListener.COMP_MATCH_DISTANCE, "Distance: ");
+        matchHistogram(srcHistArray[0], dstHistArray[0], lookupTable);
+        applyIntensityMapping(srcImage, lookupTable);
+        lookupTable.release();
+
+        if (histShow) {
+            Mat[] dstHistArrayForShow = new Mat[3];
+            int thickness = Math.min(srcImage.width() / (110) / 5, 5);
+            int offset = 2*(srcImage.width()) / 3;
+            for (int i = 0; i < dstHistArrayForShow.length; i++) {
+                dstHistArrayForShow[i] = new Mat();
+            }
+            calcHist(dstImage, dstHistArrayForShow, 100);
+            showHist(srcImage, dstHistArrayForShow, 100, offset, thickness);
+
+            for (int i = 0; i < dstHistArrayForShow.length; i++) {
+                dstHistArrayForShow[i].release();
+
             }
         }
-        lookUpTable.put(0,0,buffLUT);
-
-        //release dynamically allocated memory
-        histSrcCom.release();
-        histDstCom.release();
-
     }
 
+    public static void compareHistograms(Mat image, Mat h1, Mat h2, Point point, int compType, String string) {
+        double dist;
+        if (compType == CameraListener.COMP_MATCH_DISTANCE) {
+            dist = matchDistance(h1, h2);
+        } else {
+            dist = Imgproc.compareHist(h1, h2, compType);
+        }
+        Core.putText(image, string + String.format("%.2f", dist), point, Core.FONT_HERSHEY_COMPLEX_SMALL, 0.8, new Scalar(200, 200, 250), 1);
+    }
 
-    public static void matchHist(Mat srcImage,Mat dstImage,Mat[] srcHistArray,
-                                 Mat[] dstHistArray,boolean histShow) {
-        Mat lookupTable = new Mat(256, 1, CvType.CV_32SC1);
-        //Add the body of the implementation here. Follow the guidelines from the text.
-//        calcHist(srcImage, Mat[] histList, int histSizeNum);
-        lookupTable.release();
-        //Here add the part that displays the histogram if histShow==true
+    public static double matchDistance(Mat h1, Mat h2) {
+        double dist = 0;
+
+        Mat cummulativeh1 = new Mat(h1.size(), h1.type());
+        Mat cummulativeh2 = new Mat(h2.size(), h2.type());
+        Mat diff = new Mat(h2.size(), h2.type());
+
+        //normalize
+
+        calcCumulativeHist(h1, cummulativeh1);
+        Core.normalize(h1, h1, 1, 0, Core.NORM_INF);
+        calcCumulativeHist(h2, cummulativeh2);
+        Core.normalize(h2, h2, 1, 0, Core.NORM_INF);
+
+        Core.absdiff(cummulativeh1, cummulativeh2, diff);
+        dist = Core.norm(diff,Core.NORM_L1);
+
+        return dist;
     }
 }
 

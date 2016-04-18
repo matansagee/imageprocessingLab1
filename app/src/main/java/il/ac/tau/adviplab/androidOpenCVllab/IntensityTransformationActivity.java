@@ -71,6 +71,8 @@ public class IntensityTransformationActivity extends AppCompatActivity {
 
     private String[] mCameraNames = {"Front", "Rear"};
     private int[] mCameraIDarray = {CameraBridgeViewBase.CAMERA_ID_FRONT, CameraBridgeViewBase.CAMERA_ID_BACK};
+    private MenuItem mMenuItemCumm;
+    private MenuItem mMenuItemHist;
 
 
     @Override
@@ -155,14 +157,16 @@ public class IntensityTransformationActivity extends AppCompatActivity {
 
         Menu histogramMenu = menu.addSubMenu("Histogram");
         // Creates toggle button to show and hide histogram
-        histogramMenu.add(HISTOGRAM_GROUP_ID,
+        mMenuItemHist=histogramMenu.add(HISTOGRAM_GROUP_ID,
                 CameraListener.VIEW_MODE_SHOW_HIST, Menu.NONE, "Show histogram")
                 .setCheckable(true)
                 .setChecked(mCameraListener.isShowHistogram());
         histogramMenu.add(HISTOGRAM_GROUP_ID,
                 CameraListener.VIEW_MODE_HIST_EQUALIZE, Menu.NONE, "Equalize");
-        histogramMenu.add(HISTOGRAM_GROUP_ID,
-                CameraListener.VIEW_MODE_HIST_CUMULATIVE, Menu.NONE, "Cumulative");
+        mMenuItemCumm=histogramMenu.add(HISTOGRAM_GROUP_ID,
+                CameraListener.VIEW_MODE_HIST_CUMULATIVE, Menu.NONE, "Cumulative")
+                .setCheckable(true)
+                .setChecked(mCameraListener.isShowCumuHistogram());;
         histogramMenu.add(HISTOGRAM_GROUP_ID, CameraListener.VIEW_MODE_HIST_MATCH, Menu.NONE, "Matching");
 
         return true;
@@ -213,19 +217,31 @@ public class IntensityTransformationActivity extends AppCompatActivity {
                 if (id == CameraListener.VIEW_MODE_SHOW_HIST) {
                     item.setChecked(!item.isChecked());
                     mCameraListener.setShowHistogram(item.isChecked());
+                    mCameraListener.setShowCumuHistogram(false);
+                    mMenuItemCumm.setChecked(false);
+                }else if (id == CameraListener.VIEW_MODE_HIST_CUMULATIVE) {
+                    item.setChecked(!item.isChecked());
+                    mCameraListener.setShowCumuHistogram(item.isChecked());
+                    mCameraListener.setShowHistogram(false);
+                    mMenuItemHist.setChecked(false);
                 }else if (id == CameraListener.VIEW_MODE_HIST_EQUALIZE){
                     mCameraListener.setViewMode(id);
-                }else if (id == CameraListener.VIEW_MODE_HIST_CUMULATIVE){
-                    mCameraListener.setViewMode(id);
                 }else if(id == CameraListener.VIEW_MODE_HIST_MATCH){
-                    //Open gallery to select image for matching
-                    Intent intent = new Intent();
-                    intent.setType("image/*");
-                    intent.setAction(Intent.ACTION_GET_CONTENT);
-                    startActivityForResult(Intent.createChooser(intent,
-                                    "Select image for histogram matching"),
-                            SELECT_PICTURE);
-
+                    if(mCameraListener.getColorwMode() != CameraListener.VIEW_MODE_GRAYSCALE){
+                        Context context = getApplicationContext();
+                        CharSequence text = "This feature currently works only in grayscale mode";
+                        int duration = Toast.LENGTH_SHORT;
+                        Toast toast = Toast.makeText(context,text, duration);
+                        toast.show();
+                    }
+                    else {
+                        //Open gallery to select image for matching
+                        Intent intent = new Intent();
+                        intent.setType("image/*");
+                        intent.setAction(Intent.ACTION_GET_CONTENT);
+                        startActivityForResult(Intent.createChooser(intent, "Select image for histogram matching"), SELECT_PICTURE);
+                        mCameraListener.setViewMode(id);
+                    }
                 }
                 break;
 
